@@ -154,8 +154,8 @@ jobs:
               });
               
               
-              console.log(`Notification sent successfully to ${subIds.join(', ')}:`,response);
-              return response;
+              console.log(`Notification sent successfully to ${subIds.join(', ')}:`,response?.data);
+              return response?.data;
             } catch (error) {
               console.error(`Failed to send notification to ${subIds.join(', ')}:`, error);
               throw error;
