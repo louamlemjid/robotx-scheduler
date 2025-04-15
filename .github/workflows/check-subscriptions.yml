@@ -2,7 +2,7 @@ name: Check Subscription Expirations
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Runs every 5 minutes
+    - cron: '30 0 * * *'  
   workflow_dispatch:  # Allows manual triggering from the GitHub UI
 
 jobs:
