@@ -153,9 +153,9 @@ jobs:
                 }),
               });
               
-              const responseData = await response.json();
-              console.log(`Notification sent successfully to ${subIds.join(', ')}:`, responseData);
-              return responseData;
+              
+              console.log(`Notification sent successfully to ${subIds.join(', ')}:`,response);
+              return response;
             } catch (error) {
               console.error(`Failed to send notification to ${subIds.join(', ')}:`, error);
               throw error;
