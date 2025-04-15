@@ -1,0 +1,65 @@
+name: Send Group Notifications to Native Notify
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Runs every 5 minutes
+  workflow_dispatch:  # Allows manual triggering from the GitHub UI
+
+jobs:
+  send-notification:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Create script directory
+        run: mkdir -p scripts
+      
+      - name: Create notification script
+        run: |
+          cat > scripts/send-notification.js << 'EOL'
+          async function sendGroupNotification() {
+            try {
+              console.log('Sending group notification to Native Notify...');
+              
+              const response = await fetch('https://app.nativenotify.com/api/indie/group/notification', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  subIDs: ['uxbybtx1FGgE742J5FhDreeIYdj2', 'zKca7v7x5UOsIZdtN9wzZd23a3j2', 'K9LbqwTSO5g3F2MbjiIXYbcGu2B3'],
+                  appId: 28672,
+                  appToken: 'NNv2XOTRp5fcXDMV2VFKZh',
+                  title: 'test7',
+                  message: 'yo',
+                  pushData: {
+                    notificationType: 'event',
+                  },
+                }),
+              });
+              
+              const responseData = await response.json();
+              console.log('Notification sent successfully:', responseData);
+            } catch (error) {
+              console.error('Error sending notification:', error);
+            }
+          }
+
+          // Execute the function
+          sendGroupNotification()
+            .then(() => {
+              console.log('Process completed successfully');
+              process.exit(0);
+            })
+            .catch((error) => {
+              console.error('Process failed:', error);
+              process.exit(1);
+            });
+          EOL
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Process and send notification
+        run: node scripts/send-notification.js
