@@ -35,7 +35,7 @@ jobs:
                   title: process.env.NOTIFICATION_TITLE || 'Notification',
                   message: process.env.NOTIFICATION_MESSAGE || 'You have a new notification',
                   pushData: {
-                    notificationType: 'event',
+                    notificationType: 'subscription',
                   },
                 }),
               });
