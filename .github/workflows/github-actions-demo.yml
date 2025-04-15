@@ -20,17 +20,20 @@ jobs:
             try {
               console.log('Sending group notification to Native Notify...');
               
+              // Parse the subscriber IDs from environment variable
+              const subscriberIds = process.env.SUBSCRIBER_IDS.split(',').map(id => id.trim());
+              
               const response = await fetch('https://app.nativenotify.com/api/indie/group/notification', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  subIDs: ['uxbybtx1FGgE742J5FhDreeIYdj2', 'zKca7v7x5UOsIZdtN9wzZd23a3j2', 'K9LbqwTSO5g3F2MbjiIXYbcGu2B3'],
-                  appId: 28672,
-                  appToken: 'NNv2XOTRp5fcXDMV2VFKZh',
-                  title: 'test7',
-                  message: 'yo',
+                  subIDs: subscriberIds,
+                  appId: parseInt(process.env.NATIVE_NOTIFY_APP_ID),
+                  appToken: process.env.NATIVE_NOTIFY_APP_TOKEN,
+                  title: process.env.NOTIFICATION_TITLE || 'Notification',
+                  message: process.env.NOTIFICATION_MESSAGE || 'You have a new notification',
                   pushData: {
                     notificationType: 'event',
                   },
@@ -62,4 +65,10 @@ jobs:
           node-version: '18'
           
       - name: Process and send notification
+        env:
+          NATIVE_NOTIFY_APP_ID: ${{ secrets.NATIVE_NOTIFY_APP_ID }}
+          NATIVE_NOTIFY_APP_TOKEN: ${{ secrets.NATIVE_NOTIFY_APP_TOKEN }}
+          SUBSCRIBER_IDS: ${{ secrets.SUBSCRIBER_IDS }}
+          NOTIFICATION_TITLE: ${{ secrets.NOTIFICATION_TITLE || 'test7' }}
+          NOTIFICATION_MESSAGE: ${{ secrets.NOTIFICATION_MESSAGE || 'yo' }}
         run: node scripts/send-notification.js
