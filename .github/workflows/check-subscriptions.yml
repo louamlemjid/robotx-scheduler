@@ -49,9 +49,9 @@ jobs:
               for (const userDoc of usersSnapshot.docs) {
                 const userData = userDoc.data();
                 
-                // Skip users without expiration date or subId
-                if (!userData.expirationDate || !userData.subId) {
-                  console.log(`User ${userDoc.id} missing expiration date or subId, skipping`);
+                // Skip users without expiration date 
+                if (!userData.expirationDate ) {
+                  console.log(`User ${userDoc.id} missing expiration date , skipping`);
                   continue;
                 }
                 
@@ -66,7 +66,7 @@ jobs:
                   if (daysRemaining > 1) {
                     // More than 1 day but less than 6 days remaining
                     aboutToExpireUsers.push({
-                      subId: userData.subId,
+                      subId: userData.id,
                       daysRemaining: Math.round(daysRemaining)
                     });
                   } else if (daysRemaining > 0.02083) { // About 30 minutes in days
@@ -74,14 +74,14 @@ jobs:
                     const hoursRemaining = Math.round(daysRemaining * 24);
                     const minutesRemaining = Math.round((daysRemaining * 24 * 60) % 60);
                     expiringInHoursUsers.push({
-                      subId: userData.subId,
+                      subId: userData.id,
                       hoursRemaining,
                       minutesRemaining
                     });
                   } else {
                     // Already expired
                     expiredUsers.push({
-                      subId: userData.subId,
+                      subId: userData.id,
                       daysExpired: Math.round(Math.abs(daysRemaining))
                     });
                   }
