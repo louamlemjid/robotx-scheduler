@@ -151,6 +151,7 @@ jobs:
                   pushData: {
                     notificationType: 'subscription',
                   },
+                  bigPicture: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=800&auto=format&fit=crop'
                 }),
               });
               
