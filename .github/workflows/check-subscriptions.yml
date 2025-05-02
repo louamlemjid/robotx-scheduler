@@ -1,10 +1,11 @@
+```yaml
 name: Check Subscription Expirations
 
 on:
   schedule:
-    - cron: '0 21 * * 4'
-    - cron: '0 9 * * 5'
-  workflow_dispatch:  # Allows manual triggering from the GitHub UI
+    - cron: '0 21 * * 4'  # Runs every Thursday at 9 PM UTC
+    - cron: '0 9 * * 5'   # Runs every Friday at 9 AM UTC
+  workflow_dispatch:      # Allows manual triggering from the GitHub UI
 
 jobs:
   check-subscriptions:
@@ -18,6 +19,8 @@ jobs:
         run: |
           cat > scripts/check-subscriptions.js << 'EOL'
           const admin = require('firebase-admin');
+          const { google } = require('googleapis');
+          const fetch = require('node-fetch');
 
           // Initialize Firebase Admin SDK
           const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -26,6 +29,23 @@ jobs:
           });
 
           const db = admin.firestore();
+          const projectId = 'nour-elfalam'; // Your Firebase project ID
+
+          // Function to get OAuth 2.0 access token for FCM v1
+          async function getAccessTokenAsync(key) {
+            const jwtClient = new google.auth.JWT(
+              key.client_email,
+              null,
+              key.private_key,
+              ['https://www.googleapis.com/auth/firebase.messaging']
+            );
+            return new Promise((resolve, reject) => {
+              jwtClient.authorize((err, tokens) => {
+                if (err) return reject(err);
+                resolve(tokens.access_token);
+              });
+            });
+          }
 
           async function checkSubscriptions() {
             try {
@@ -50,9 +70,9 @@ jobs:
               for (const userDoc of usersSnapshot.docs) {
                 const userData = userDoc.data();
                 
-                // Skip users without expiration date 
-                if (!userData.expirationDate ) {
-                  console.log(`User ${userDoc.id} missing expiration date , skipping`);
+                // Skip users without expiration date or FCM token
+                if (!userData.expirationDate || !userData.fcmToken) {
+                  console.log(`User ${userDoc.id} missing expiration date or FCM token, skipping`);
                   continue;
                 }
                 
@@ -67,7 +87,8 @@ jobs:
                   if (daysRemaining > 1) {
                     // More than 1 day but less than 6 days remaining
                     aboutToExpireUsers.push({
-                      subId: userData.id,
+                      subId: userData.subId,
+                      fcmToken: userData.fcmToken,
                       daysRemaining: Math.round(daysRemaining)
                     });
                   } else if (daysRemaining > 0.02083) { // About 30 minutes in days
@@ -75,14 +96,16 @@ jobs:
                     const hoursRemaining = Math.round(daysRemaining * 24);
                     const minutesRemaining = Math.round((daysRemaining * 24 * 60) % 60);
                     expiringInHoursUsers.push({
-                      subId: userData.id,
+                      subId: userData.subId,
+                      fcmToken: userData.fcmToken,
                       hoursRemaining,
                       minutesRemaining
                     });
                   } else {
                     // Already expired
                     expiredUsers.push({
-                      subId: userData.id,
+                      subId: userData.subId,
+                      fcmToken: userData.fcmToken,
                       daysExpired: Math.round(Math.abs(daysRemaining))
                     });
                   }
@@ -103,10 +126,9 @@ jobs:
             try {
               // Send notifications to users with days remaining
               if (aboutToExpireUsers.length > 0) {
-                const subIds = aboutToExpireUsers.map(user => user.subId);
                 for (const user of aboutToExpireUsers) {
                   const message = `Votre abonnement bientôt expire dans ${user.daysRemaining} jour${user.daysRemaining !== 1 ? 's' : ''}.`;
-                  await sendNotification([user.subId], 'Rappel d\'abonnement', message);
+                  await sendNotification(user.fcmToken, 'Rappel d\'abonnement', message);
                 }
               }
               
@@ -114,7 +136,7 @@ jobs:
               if (expiringInHoursUsers.length > 0) {
                 for (const user of expiringInHoursUsers) {
                   const message = `Votre abonnement expire dans ${user.hoursRemaining} heure${user.hoursRemaining !== 1 ? 's' : ''} et ${user.minutesRemaining} minute${user.minutesRemaining !== 1 ? 's' : ''}.`;
-                  await sendNotification([user.subId], 'Rappel d\'abonnement', message);
+                  await sendNotification(user.fcmToken, 'Rappel d\'abonnement', message);
                 }
               }
               
@@ -122,7 +144,7 @@ jobs:
               if (expiredUsers.length > 0) {
                 for (const user of expiredUsers) {
                   const message = `Votre abonnement a expiré il y a ${user.daysExpired} jour${user.daysExpired !== 1 ? 's' : ''}. Veuillez renouveler pour continuer.`;
-                  await sendNotification([user.subId], 'Abonnement expiré', message);
+                  await sendNotification(user.fcmToken, 'Abonnement expiré', message);
                 }
               }
               
@@ -133,33 +155,60 @@ jobs:
             }
           }
 
-          async function sendNotification(subIds, title, message) {
+          async function sendNotification(fcmToken, title, message) {
             try {
-              console.log(`Sending notification to ${subIds.length} users: "${title}" - "${message}"`);
+              console.log(`Sending FCM v1 notification to token: ${fcmToken} - "${title}" - "${message}"`);
               
-              const response = await fetch('https://app.nativenotify.com/api/indie/group/notification', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  subIDs: subIds,
-                  appId: parseInt(process.env.NATIVE_NOTIFY_APP_ID),
-                  appToken: process.env.NATIVE_NOTIFY_APP_TOKEN,
-                  title: title,
-                  message: message,
-                  pushData: {
+              // Get OAuth 2.0 access token
+              const firebaseAccessToken = await getAccessTokenAsync(serviceAccount);
+
+              // FCM v1 payload
+              const messageBody = {
+                message: {
+                  token: fcmToken,
+                  notification: {
+                    title: title,
+                    body: message,
+                  },
+                  data: {
+                    channelId: 'default', // Matches the channel set in expo-notifications
                     notificationType: 'subscription',
                   },
-                  bigPicture: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=800&auto=format&fit=crop'
-                }),
-              });
+                  android: {
+                    priority: 'high',
+                    notification: {
+                      channelId: 'default',
+                      sound: 'default',
+                      image: 'https://images.unsplash.com/photo-1558002038-1055907df827?w=800&auto=format&fit=crop',
+                    },
+                  },
+                },
+              };
+
+              // Send notification via FCM v1 API
+              const response = await fetch(
+                `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${firebaseAccessToken}`,
+                    Accept: 'application/json',
+                    'Accept-encoding': 'gzip, deflate',
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(messageBody),
+                }
+              );
+
+              const responseData = await response.json();
+              if (!response.ok) {
+                throw new Error(`FCM v1 API error: ${JSON.stringify(responseData)}`);
+              }
               
-              
-              console.log(`Notification sent successfully to ${subIds.join(', ')}:`,response?.data);
-              return response?.data;
+              console.log(`Notification sent successfully to ${fcmToken}:`, responseData);
+              return responseData;
             } catch (error) {
-              console.error(`Failed to send notification to ${subIds.join(', ')}:`, error);
+              console.error(`Failed to send notification to ${fcmToken}:`, error);
               throw error;
             }
           }
@@ -183,11 +232,10 @@ jobs:
           
       - name: Install dependencies
         run: |
-          npm install firebase-admin
+          npm install firebase-admin googleapis node-fetch
           
       - name: Check subscriptions and send notifications
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          NATIVE_NOTIFY_APP_ID: ${{ secrets.NATIVE_NOTIFY_APP_ID }}
-          NATIVE_NOTIFY_APP_TOKEN: ${{ secrets.NATIVE_NOTIFY_APP_TOKEN }}
         run: node scripts/check-subscriptions.js
+```
