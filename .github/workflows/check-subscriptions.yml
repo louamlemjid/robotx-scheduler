@@ -1,4 +1,4 @@
-```yaml
+
 name: Check Subscription Expirations
 
 on:
@@ -238,4 +238,4 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: node scripts/check-subscriptions.js
-```
+
