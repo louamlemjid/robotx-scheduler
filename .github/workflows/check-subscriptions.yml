@@ -20,7 +20,6 @@ jobs:
           cat > scripts/check-subscriptions.js << 'EOL'
           const admin = require('firebase-admin');
           const { google } = require('googleapis');
-          const fetch = require('node-fetch');
 
           // Initialize Firebase Admin SDK
           const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
