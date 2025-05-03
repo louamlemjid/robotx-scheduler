@@ -178,7 +178,7 @@ jobs:
                     notification: {
                       channelId: 'default',
                       sound: 'default',
-                      image: 'https://raw.githubusercontent.com/louamlemjid/robotx-scheduler/main/assets/expirationIcon.png',
+                      image: 'https://raw.githubusercontent.com/louamlemjid/robotx-scheduler/main/assets/expiredIcon.png',
                     },
                   },
                 },
