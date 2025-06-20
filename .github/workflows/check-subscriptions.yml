@@ -10,11 +10,6 @@ jobs:
   check-subscriptions:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug service account
-        run: echo "Service account length: ${#FIREBASE_SERVICE_ACCOUNT}"
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-
       - name: Create script directory
         run: mkdir -p scripts
 
